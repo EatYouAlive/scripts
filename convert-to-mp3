@@ -1,0 +1,134 @@
+#!/bin/bash
+#
+#  ░▒▓████████▓▒░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓███████▓▒░       ░▒▓████████▓▒░▒▓█▓▒░▒▓███████▓▒░  
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓██████▓▒░ ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░       ░▒▓██████▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#                                                                                                            
+# Year: 2025.
+
+############################################################################################################
+#tput setaf 0 = black
+#tput setaf 1 = red
+#tput setaf 2 = green
+#tput setaf 3 = yellow
+#tput setaf 4 = dark blue
+#tput setaf 5 = purple
+#tput setaf 6 = cyan
+#tput setaf 7 = gray
+#tput setaf 8 = light blue
+
+#end colors
+#tput sgr0
+############################################################################################################
+
+
+# Parallel & recursive conversion of audio files to .MP3 with 'ffmpeg'
+
+# --- Color definitions for messages ---
+INFO_COLOR=$(tput setaf 4)
+SUCCESS_COLOR=$(tput setaf 2)
+WARN_COLOR=$(tput setaf 3)
+ERROR_COLOR=$(tput setaf 1)
+RESET_COLOR=$(tput sgr0)
+
+# --- Interactive Encoding Method Selection ---
+
+# Variable to store the chosen ffmpeg option
+ffmpeg_quality_option=""
+
+echo "${INFO_COLOR}### Choose an encoding method ###${RESET_COLOR}"
+
+# Loop until the user provides a valid choice (1 or 2).
+while true; do
+  echo "1) ${WARN_COLOR}VBR${RESET_COLOR} (High Quality, Efficient File Size, ~245 kbps average)"
+  echo "2) ${WARN_COLOR}CBR${RESET_COLOR} (Constant 320 kbps, Maximum File Size)"
+  
+  read -p "Your choice (1 or 2): " user_choice
+  
+  case $user_choice in
+    1)
+      ffmpeg_quality_option="-q:a 0"
+      echo "${SUCCESS_COLOR}VBR encoding selected.${RESET_COLOR}"
+      echo
+      break # Exit the loop as the choice is valid.
+      ;;
+    2)
+      ffmpeg_quality_option="-b:a 320k"
+      echo "${SUCCESS_COLOR}320 kbps CBR encoding selected.${RESET_COLOR}"
+      echo
+      break # Exit the loop as the choice is valid.
+      ;;
+    *)
+      # For any other input, show an error message.
+      echo
+      echo "${ERROR_COLOR}Invalid choice. Please enter 1 or 2!${RESET_COLOR}"
+      echo
+      ;;
+  esac
+done
+
+# --- SELECTION SECTION END ---
+
+# Variables to track the process
+conversion_needed=false
+cover_found=false
+
+# Step 1: Create the 'mp3' directory if it doesn't exist.
+echo "${INFO_COLOR}### Checking: Ensuring 'mp3' directory exists...${RESET_COLOR}"
+mkdir -p mp3
+
+# Step 2: Find and copy the cover image.
+echo "${INFO_COLOR}### Searching for cover image...${RESET_COLOR}"
+shopt -s nocaseglob # Enable case-insensitive globbing
+for cover_file in {cover,folder}.{jpg,jpeg,png,gif}; do
+  if [[ -f "$cover_file" ]]; then
+    echo "${INFO_COLOR}-> Found: '$cover_file'. Copying...${RESET_COLOR}"
+    cp "$cover_file" "mp3/"
+    cover_found=true
+    break # Found one, no need to search for more.
+  fi
+done
+shopt -u nocaseglob # Disable case-insensitive globbing
+if [ "$cover_found" = false ]; then
+    echo "${WARN_COLOR}-> Cover image not found.${RESET_COLOR}"
+fi
+
+shopt -s nullglob # Prevent loop from running with a literal "*" if no files are found.
+
+# Step 3: Loop through all supported source audio files.
+# THIS PART WAS CHANGED FOR UNIVERSALITY
+for source_file in *.flac *.wav *.m4a *.ogg *.aiff; do
+  
+  # Universal method to remove the file extension.
+  # THIS PART WAS CHANGED FOR UNIVERSALITY
+  base_name="${source_file%.*}"
+  mp3_file="mp3/${base_name}.mp3"
+  
+  if [[ ! -f "$mp3_file" ]]; then
+    echo "${WARN_COLOR}-> Converting: '$source_file' -> '$mp3_file'${RESET_COLOR}"
+    
+    # Using the quality setting chosen by the user.
+    # ffmpeg automatically detects the input format (via the '-i' switch).
+    ffmpeg -i "$source_file" $ffmpeg_quality_option "$mp3_file"
+    
+    conversion_needed=true
+  else
+    echo "${INFO_COLOR}-> Skipping: '$mp3_file' already exists.${RESET_COLOR}"
+  fi
+done
+
+shopt -u nullglob # Reset shell option to default.
+
+# Step 4: Summary message at the end of the script.
+echo
+if [ "$conversion_needed" = true ]; then
+  echo "${SUCCESS_COLOR}### The required conversions have completed successfully. ###${RESET_COLOR}"
+else
+  echo "${SUCCESS_COLOR}### No conversion needed, all files are up to date. ###${RESET_COLOR}"
+fi
+echo
+

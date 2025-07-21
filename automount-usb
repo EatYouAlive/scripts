@@ -1,0 +1,116 @@
+#!/bin/bash
+#
+#  ░▒▓████████▓▒░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓███████▓▒░       ░▒▓████████▓▒░▒▓█▓▒░▒▓███████▓▒░  
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓██████▓▒░ ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░       ░▒▓██████▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#  ░▒▓████████▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░      ░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+#                                                                                                            
+# Year: 2025.
+
+############################################################################################################
+#tput setaf 0 = black
+#tput setaf 1 = red
+#tput setaf 2 = green
+#tput setaf 3 = yellow
+#tput setaf 4 = dark blue
+#tput setaf 5 = purple
+#tput setaf 6 = cyan
+#tput setaf 7 = gray
+#tput setaf 8 = light blue
+
+#end colors
+#tput sgr0
+############################################################################################################
+
+# SCRIPT TO MOUNT USB DEVICES
+# Usage: automount-usb -d [DEVICE] -t [FILESYSTEM]
+
+# --- Configuration settings ---
+DEVICE=""           # The name of the device to mount (e.g., /dev/sdb1)
+MOUNT_POINT="/home/endorfin/EXT-DEV/USB" # Fixed mount point
+FILESYSTEM_TYPE=""  # The filesystem type (e.g., vfat, ntfs-3g, ext4)
+
+# --- Functions ---
+
+# Display usage instructions
+usage() {
+  echo "Usage: $0 [-d <device>] [-t <filesystem_type>]"
+  echo "  -d <device>          Path to the device to mount (e.g., /dev/sdb1)"
+  echo "  -t <filesystem_type> Type of the filesystem (e.g., vfat, ntfs-3g, ext4)"
+  exit 1
+}
+
+# Check if the specified device exists
+check_device() {
+  if [ ! -b "$DEVICE" ]; then
+    echo "Error: The specified device ('$DEVICE') does not exist or is not a block device."
+    exit 1
+  fi
+}
+
+# Check if the mount point exists, and create it if it doesn't
+check_mount_point() {
+  if [ ! -d "$MOUNT_POINT" ]; then
+    echo "Warning: The mount point ('$MOUNT_POINT') does not exist. Creating it."
+    sudo mkdir -p "$MOUNT_POINT"
+    if [ ! -d "$MOUNT_POINT" ]; then
+      echo "Error: Failed to create the mount point ('$MOUNT_POINT')."
+      exit 1
+    fi
+  fi
+}
+
+# Mount the device with the specified parameters
+mount_device() {
+  local device="$1"
+  local fstype="$2"
+  local common_options="noatime"
+
+  if [ -n "$fstype" ]; then
+    if [ "$fstype" == "btrfs" ]; then
+      sudo mount -t btrfs -o "$common_options" "$device" "$MOUNT_POINT"
+    else
+      sudo mount -t "$fstype" -o "uid=$(id -u),gid=$(id -g),umask=022,$common_options" "$device" "$MOUNT_POINT"
+    fi
+  else
+    sudo mount -o "uid=$(id -u),gid=$(id -g),umask=022,$common_options" "$device" "$MOUNT_POINT"
+  fi
+
+  if [ $? -eq 0 ]; then
+    echo "Successfully mounted: '$device' -> '$MOUNT_POINT'"
+  else
+    echo "Error: Failed to mount '$device' to '$MOUNT_POINT'."
+    exit 1
+  fi
+}
+
+# --- Main part of the script ---
+
+# Process arguments
+while getopts "d:t:" opt; do
+  case "$opt" in
+    d) DEVICE="$OPTARG" ;;
+    t) FILESYSTEM_TYPE="$OPTARG" ;;
+    \?) usage ;;
+  esac
+done
+
+# Check if all necessary parameters have been provided
+if [ -z "$DEVICE" ]; then
+  echo "Error: Please specify the device (-d)."
+  usage
+fi
+
+# Check the mount point
+check_mount_point
+
+# Check the device
+check_device
+
+# Mount the device
+mount_device "$DEVICE" "$FILESYSTEM_TYPE"
+
+exit 0
